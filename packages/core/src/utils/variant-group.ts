@@ -17,18 +17,28 @@ interface VariantGroup {
   items: HighlightAnnotation[]
 }
 
-export function parseVariantGroup(str: string | MagicString, separators = ['-', ':'], depth = 5) {
+const regexAttribute = /(<[\w\-_]+)\s+(([^<>"']|"[^"]*"|'[^']*'|<)*)\/?>/gm
+export function parseVariantGroup(str: string | MagicString, separators = ['-', ':'], depth = 5, onlyAttribute?: boolean) {
   const regexClassGroup = makeRegexClassGroup(separators)
   let hasChanged
   let content = str.toString()
   const prefixes = new Set<string>()
   const groupsByOffset = new Map<number, VariantGroup>()
-
+  const isAttributor = (offset: number) => {
+    for (const match of content.matchAll(regexAttribute)) {
+      const index = match.index!
+      if (index + match[1].length < offset && (index + match[0].length > offset))
+        return true
+    }
+    return false
+  }
   do {
     hasChanged = false
     content = content.replace(
       regexClassGroup,
       (from, pre: string, sep: string, body: string, groupOffset: number) => {
+        if (!onlyAttribute && !isAttributor(groupOffset))
+          return from
         if (!separators.includes(sep))
           return from
 
@@ -135,10 +145,10 @@ export function collapseVariantGroup(str: string, prefixes: string[]): string {
     .join(' ')
 }
 
-export function expandVariantGroup(str: string, separators?: string[], depth?: number): string
-export function expandVariantGroup(str: MagicString, separators?: string[], depth?: number): MagicString
-export function expandVariantGroup(str: string | MagicString, separators = ['-', ':'], depth = 5) {
-  const res = parseVariantGroup(str, separators, depth)
+export function expandVariantGroup(str: string, separators?: string[], depth?: number, onlyAttribute?: boolean): string
+export function expandVariantGroup(str: MagicString, separators?: string[], depth?: number, onlyAttribute?: boolean): MagicString
+export function expandVariantGroup(str: string | MagicString, separators = ['-', ':'], depth = 5, onlyAttribute?: boolean) {
+  const res = parseVariantGroup(str, separators, depth, onlyAttribute)
   return typeof str === 'string'
     ? res.expanded
     : str
